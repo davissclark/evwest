@@ -923,7 +923,7 @@ shinyServer(function(input, output, session) {
   height = 325)
 
   output$performancetable <- DT::renderDataTable({
-    req(performance$results)
+    req(performance$results, range$results)
 
     r <- performance$results
 
@@ -995,7 +995,7 @@ shinyServer(function(input, output, session) {
   })
 
   output$performance.summary <- DT::renderDataTable({
-    req(performance$results)
+    req(performance$results, range$results)
 
     miles <- max(range$results$distance)
 
