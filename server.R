@@ -289,7 +289,7 @@ shinyServer(function(input, output, session) {
                       column(6,
                              class = 'details',
                              DT::dataTableOutput("cardetails"),
-                             DT::dataTableOutput("geardetails"),
+                             # DT::dataTableOutput("geardetails"),
                              DT::dataTableOutput("tiredetails"),
                              DT::dataTableOutput("motordetails"),
                              br()
@@ -773,14 +773,15 @@ shinyServer(function(input, output, session) {
       select(Car15,
              `Drag Coefficient (Cd)` = Cd,
              `Frontal Area (sqft)` = `Ft2.20`,
-             `Design Mass (lbm)`) %>%
-             # `1` = X1st,
-             # `2` = X2nd,
-             # `3` = X3rd,
-             # `4` = X4th,
-             # `5` = X5th,
-             # `Final Drive` = Final.Drive) %>%
-      gather(Car, Value, Car15:`Design Mass (lbm)`) %>%
+             `Design Mass (lbm)`,
+             `1st` = X1st,
+             `2nd` = X2nd,
+             `3rd` = X3rd,
+             `4th` = X4th,
+             `5th` = X5th,
+             `Final Drive` = Final.Drive) %>%
+      # gather(Car, Value, Car15:`Design Mass (lbm)`) %>%
+      gather(Car, Value, Car15:`Final Drive`) %>%
       mutate(Value = ifelse(Car == "Frontal Area (sqft)",
                             formatC(as.numeric(Value), digits = 1, format = 'f'),
                             formatC(as.numeric(Value), digits = 2, format = 'f'))) %>%
@@ -804,34 +805,34 @@ shinyServer(function(input, output, session) {
                   backgroundColor = 'white')
   })
 
-  output$geardetails <- DT::renderDataTable({
-    req(input$car)
-    d <- car() %>%
-      select(`1st` = X1st,
-             `2nd` = X2nd,
-             `3rd` = X3rd,
-             `4th` = X4th,
-             `5th` = X5th,
-             `Final Drive` = Final.Drive) %>%
-      gather(Car, Value, `1st`:`Final Drive`) %>%
-      mutate(Value = formatC(as.numeric(Value), digits = 2, format = 'f'))
-      # filter(Car != "Car15")
-
-    d %>%
-      datatable(
-        colnames = c("Gear Ratios", ""),
-        selection = 'none',
-        options = list(
-          columnDefs = list(list(className = 'dt-right', targets = 1)),
-          searching = FALSE,
-          paging = FALSE,
-          dom = 'ft',
-          ordering = FALSE
-        ),
-        rownames = FALSE) %>%
-      formatStyle(1:2,
-                  backgroundColor = 'white')
-  })
+  # output$geardetails <- DT::renderDataTable({
+  #   req(input$car)
+  #   d <- car() %>%
+      # select(`1st` = X1st,
+      #        `2nd` = X2nd,
+      #        `3rd` = X3rd,
+      #        `4th` = X4th,
+      #        `5th` = X5th,
+  #            `Final Drive` = Final.Drive) %>%
+  #     gather(Car, Value, `1st`:`Final Drive`) %>%
+  #     mutate(Value = formatC(as.numeric(Value), digits = 2, format = 'f'))
+  #     # filter(Car != "Car15")
+  #
+  #   d %>%
+  #     datatable(
+  #       colnames = c("Gear Ratios", ""),
+  #       selection = 'none',
+  #       options = list(
+  #         columnDefs = list(list(className = 'dt-right', targets = 1)),
+  #         searching = FALSE,
+  #         paging = FALSE,
+  #         dom = 'ft',
+  #         ordering = FALSE
+  #       ),
+  #       rownames = FALSE) %>%
+  #     formatStyle(1:2,
+  #                 backgroundColor = 'white')
+  # })
 
   output$tiredetails <- DT::renderDataTable({
 
