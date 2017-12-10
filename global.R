@@ -4,7 +4,10 @@ library(dplyr)
 library(ggplot2)
 library(tidyr)
 library(DT)
+library(showtext)
 
+font_add_google("Roboto", "roboto")
+showtext.auto()
 
 querydb <- function(table = NA, q = NA) {
   db <- dbConnect(SQLite(), "data/db")

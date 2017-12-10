@@ -905,12 +905,12 @@ shinyServer(function(input, output, session) {
       theme(
         legend.position = 'right',
         panel.background = element_blank(),
-        axis.text = element_text(face = 'bold', size = 10),
-        axis.title.x = element_text(face = 'bold', size = 11, margin = margin(t = 15, r = 0, b = 0, l = 0)),
-        axis.title.y = element_text(face = 'bold', size = 11),
+        axis.text = element_text(family = 'roboto', face = 'bold', size = 10),
+        axis.title.x = element_text(family = 'roboto', face = 'bold', size = 11, margin = margin(t = 15, r = 0, b = 0, l = 0)),
+        axis.title.y = element_text(face = 'bold', size = 11, family = 'roboto'),
         legend.title = element_blank(),
-        legend.text = element_text(face = 'bold', size = 10),
-        plot.title = element_text(size=11, face = "bold")
+        legend.text = element_text(face = 'bold', size = 10, family = 'roboto'),
+        plot.title = element_text(size=11, face = "bold", family = 'roboto')
       ) +
       # xlim(0, 200) +
       # ylim(0, 30) +
