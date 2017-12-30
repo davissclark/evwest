@@ -206,6 +206,37 @@ shinyServer(function(input, output, session) {
     config$motor <- input$motor
   })
 
+  # output$mytabs <- renderUI({
+  #   if (length(isolate(input$run)) > 0) {
+  #     if (input$run > 0) {
+  #       tabsetPanel(id = "viewbar",
+  #                   tabPanel("Configure",
+  #                            value = "config"),
+  #                   tabPanel("Performance",
+  #                            value = "performance"),
+  #                   tabPanel("Range",
+  #                            value = "range"),
+  #                   tabPanel(icon("database"),
+  #                            value = "database")
+  #       )
+  #     } else {
+  #       tabsetPanel(id = "viewbar",
+  #                   tabPanel("Configure",
+  #                            value = "config"),
+  #                   tabPanel(icon("database"),
+  #                            value = "database")
+  #       )
+  #     }
+  #   } else {
+  #     tabsetPanel(id = "viewbar",
+  #       tabPanel("Configure",
+  #                value = "config"),
+  #       tabPanel(icon("database"),
+  #                value = "database")
+  #     )
+  #   }
+  # })
+
   output$views <- renderUI({
     switch(input$viewbar,
            config = tagList(
@@ -260,7 +291,7 @@ shinyServer(function(input, output, session) {
                             ),
                             column(4,
                                    numericInput("no.motors",
-                                                "#", 1,
+                                                "# Motors", 1,
                                                 1, 3,
                                                 step = 1)
                             )
@@ -295,9 +326,11 @@ shinyServer(function(input, output, session) {
                              br()
                       ),
                       column(6,
+                             class = 'details',
                              DT::dataTableOutput("performance.summary"),
                              br(),
-                             # br(),
+                             br(),
+                             br(),
                              br(),
                              plotOutput("performancechart", height = "100%"),
                              br()

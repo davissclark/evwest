@@ -30,6 +30,7 @@ shinyUI(fluidPage(
                  span(id = "title", "EV West"))
       ),
       column(9,
+             # uiOutput('mytabs')
              tabsetPanel(id = "viewbar",
                          tabPanel("Configure",
                                   value = "config"),
@@ -38,7 +39,8 @@ shinyUI(fluidPage(
                          tabPanel("Range",
                                   value = "range"),
                          tabPanel(icon("database"),
-                                  value = "database"))
+                                  value = "database")
+             )
       ),
       column(12,
              uiOutput("views")
