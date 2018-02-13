@@ -580,27 +580,14 @@ shinyServer(function(input, output, session) {
     withProgress(message = 'Running Range Simulation', value = 0, {
       incProgress(1)
 
-      r <- matrix(nrow = nrow(range$simulation), ncol = 13) %>%
-        as.data.frame()
-
-      names(r) <- c(names(range$simulation),
-                    "velocity",
-                    "distance",
-                    "acceleration",
-                    "gear",
-                    "mass",
-                    "inertial",
-                    "aero",
-                    "rolling",
-                    "dt",
-                    "motor")
-
       rounds <- 1:nrow(range$simulation)
 
-      r[, 1:3] <- range$simulation
-      r[, "velocity"] <- mph_fps2(r[, "MPH"])
+      r <- range$simulation %>%
+        mutate(velocity = mph_fps2(MPH))
+
       r[, "distance"] <- sapply(rounds, function(x) ifelse(x == 1, 0, (r[x, "velocity"] + r[x-1, "velocity"]) / 2 / 5280), USE.NAMES = FALSE)
       r[, "distance"] <- cumsum(r[, "distance"])
+
       r[, "acceleration"] <- sapply(rounds, function(x) ifelse(x == 1, 0, r[x, "velocity"] - r[x-1, "velocity"]), USE.NAMES = FALSE)
       r[, "gear"] <- sapply(rounds, function(x) {
         performance$results %>%
@@ -609,67 +596,21 @@ shinyServer(function(input, output, session) {
           max(na.rm = TRUE)
       }, USE.NAMES = FALSE)
 
-      r[, "mass"] <- getRotationalMass(r[, "gear"]) * design.mass()
-
-      r[, "inertial"] <- sapply(rounds, function(x) lbf_slugs(r[x, "mass"]) * r[x, "acceleration"], USE.NAMES = FALSE)
-      r[, "aero"] <- getAeroForce(defaults$aero_frontal_area, defaults$aero_drag_coeff, r[, "velocity"], setup$rho)
-      r[, "rolling"] <- sapply(rounds, function(x) ifelse(r[x, "velocity"] > 0, getRollingForce(setup$tire_pressure, r[x, "MPH"], design.mass()), 0), USE.NAMES = FALSE)
-      r[, "dt"] <- sapply(rounds, function(x) abs(r$inertial[x] + r$aero[x] + r$rolling[x]) * (1 - de()), USE.NAMES = FALSE)
-
-      r[, "motor"] <- sapply(rounds, function(x) {
-        ifelse(sum(c(r[x, "inertial"], r[x, "aero"], r[x, "rolling"], r[x, "dt"])) >= 0,
-               sum(c(r[x, "inertial"], r[x, "aero"], r[x, "rolling"], r[x, "dt"])) / setup$motor_efficiency,
-               sum(c(r[x, "inertial"], r[x, "aero"], r[x, "rolling"], r[x, "dt"])) * setup$regeneration)
-      }, USE.NAMES = FALSE)
-      # r[1, "gear"] <- filter(performance$results,
-      #                        velocity <= r[1, "velocity"]) %>%
-      #   .$gear %>%
-      #   max(na.rm = TRUE)
-
-      # r[1, "mass"] <- getRotationalMass(r[1, "gear"]) * design.mass()
-      # r[1, "inertial"] <- lbf_slugs(r[1, "mass"]) * r[1, "acceleration"]
-
-      # r[1, "aero"] <- getAeroForce(defaults$aero_frontal_area,
-      #                              defaults$aero_drag_coeff,
-      #                              r[1, "velocity"],
-      #                              setup$rho)
-
-      # r[1, "rolling"] <- ifelse(r[1, "velocity"] > 0,
-      #                           getRollingForce(setup$tire_pressure,
-      #                                           r[1, "MPH"],
-      #                                           design.mass()),
-      #                           0)
-
-      # r[1, "dt"] <- abs(sum(c(r[1, "inertial"],
-      #                         r[1, "aero"],
-      #                         r[1, "rolling"]))) * (1 - de())
-
-      # r[1, "motor"] <- ifelse(sum(c(r[1, "inertial"],
-      #                               r[1, "aero"],
-      #                               r[1, "rolling"],
-      #                               r[1, "dt"])) >= 0,
-      #                         sum(c(r[1, "inertial"],
-      #                               r[1, "aero"],
-      #                               r[1, "rolling"],
-      #                               r[1, "dt"])) / setup$motor_efficiency,
-      #                         sum(c(r[1, "inertial"],
-      #                               r[1, "aero"],
-      #                               r[1, "rolling"],
-      #                               r[1, "dt"])) * setup$regeneration)
-
-      # for (i in 2:nrow(range$simulation)) {
-      #   incProgress(1/nrow(range$simulation))
-      #
-      # }
-
-      r <- r %>%
+      range$results <- r %>%
+        mutate(mass = getRotationalMass(gear) * design.mass()) %>%
+        mutate(inertial = lbf_slugs(mass) * acceleration) %>%
+        mutate(aero = getAeroForce(defaults$aero_frontal_area, defaults$aero_drag_coeff, velocity, setup$rho)) %>%
+        mutate(rolling = if_else(velocity > 0, getRollingForce(setup$tire_pressure, MPH, design.mass()), 0)) %>%
+        mutate(dt = abs(inertial + aero + rolling) * (1 - de())) %>%
+        mutate(motor = if_else((inertial + aero + rolling + dt) >= 0,
+                               (inertial + aero + rolling + dt) / setup$motor_efficiency,
+                               (inertial + aero + rolling + dt) * setup$regeneration)) %>%
         mutate(inertial = inertial * velocity,
                aero = aero * velocity,
                rolling = rolling * velocity,
                dt = dt * velocity,
                motor = motor * velocity)
     })
-    range$results <- r
   })
 
   output$maxacc <- renderText({
