@@ -1,155 +1,40 @@
-# EIA: Average Residential Electricity Cost by State (July 2017)
-
-getGearRatio <- function(car, gear = NA) {
-  cars <- querydb("Cars")
-
-  gears <- data.frame(Gear = c(1:6),
-                      Ratio = as.numeric(cars[cars$Car15 == car,
-                                              c('X1st',
-                                                'X2nd',
-                                                'X3rd',
-                                                'X4th',
-                                                'X5th',
-                                                'Final.Drive')]
-                      )
-  )
-
-  if (is.na(gear)) {
-   gears
-  } else {
-    gears[gear, "Ratio"]
-  }
+drive.efficiency <- function(power, max.dt.loss) {
+  (power - max.dt.loss) / power
 }
 
-getMotorLimit <- function(motor) {
-  motor$Max.RPM
-}
+performance.simulation <- function(time_step = 0, gear = 1, car, velocity = 0, motor, no.motors, wheel_radius, drive.efficiency,
+                                   aero_frontal_area, aero_drag_coeff, rho, tire_pressure, design.mass) {
 
-# getGearRatio("Acura  Integra RS")
-# Gear Ratio
-# 1    1  3.17
-# 2    2  1.94
-# 3    3  1.35
-# 4    4  1.03
-# 5    5  0.85
-# 6    6  4.21
-# getGearRatio("Acura  Integra RS", 1)
-# 3.17
+  speed <- getSpeed(velocity)
+  gearratio <- getGearRatio(car, gear)
+  motortorque <- getMotorTorque(motor, no.motors)
+  wheeltorque <- getWheelTorque(motortorque, gearratio, getGearRatio(car, 6))
+  wheelforce_gross <- getWheelForce_gross(wheeltorque, wheel_radius)
+  dtforce <- getDTForce(wheelforce_gross, drive.efficiency)
+  aeroforce <- getAeroForce(aero_frontal_area, aero_drag_coeff, velocity, rho)
+  rollingforce <- getRollingForce(tire_pressure, speed, design.mass)
+  wheelforce_net <- getWheelForce_net(wheelforce_gross, dtforce, aeroforce, rollingforce)
+  acceleration <- getAcceleration(wheelforce_net, design.mass, gear)
 
-getDesignMass <- function() {
-  components <- defaults[grepl("^mass_", names(defaults))]
-  sum(as.numeric(unlist(components)), na.rm = TRUE)
-}
-
-getWheelRadius <- function(tire_width, tire_section_ht, tire_rim) {
-  (((tire_width * 0.0393701 * (tire_section_ht/100) * 2) + tire_rim) / 2) / 12
-}
-
-getWheelCircumference <- function(wheel_radius) {
-  wheel_radius * 2 * pi
-}
-
-getRotationalMass <- function(gear) {
-  switch(gear,
-         `1` = 1.19,
-         `2` = 1.12,
-         `3` = 1.08,
-         `4` = 1.07,
-         `5`	= 1.06)
-}
-
-getRollingResistCoef <- function(psi) {
-  switch(as.character(psi),
-         `30` = list(x2 = 1.23024511362609E-06,
-                     x = 2.00E-18,
-                     c = 0.0100),
-         `45` = list(x2 = 8.24E-07,
-                     x = -9.00E-19,
-                     c = 0.0083),
-         `60` = list(x2 = 6.00E-07,
-                     x = 2.00E-18,
-                     c = 0.0075)
-  )
-}
-
-getVelocity <- function(velocity, acceleration, time_step) {
-  velocity + (acceleration * time_step)
-}
-
-getSpeed <- function(velocity) {
-  mph_fps(velocity)
-}
-# getSpeed(1.6)
-# 1.090907
-
-getMotorRpm <- function(velocity,
-                        gear_ratio,
-                        final_drive,
-                        wheel_circumference) {
-  (velocity * gear_ratio * final_drive * 60) / wheel_circumference
-}
-
-motorRpm <- function(motor_rpm, motor_limit) {
-  if (motor_rpm > motor_limit) {
-    motor_limit / 1000
-  } else {
-    motor_rpm / 1000
-  }
-}
-
-getMotorTorque <- function(motor, count, motor_rpm = NA) {
-  if (is.na(motor_rpm)) {
-    motor$T0 * count
-  } else {
-    (motor_rpm ^ 4 * (motor$T4 * count)) +
-      (motor_rpm ^ 3 * (motor$T3 * count)) +
-      (motor_rpm ^ 2 * (motor$T2 * count)) +
-      (motor_rpm ^ 1 * (motor$T1 * count)) + motor$T0 * count
-  }
-}
-
-# getMotorTorque(motors[1,], 5)
-# [1] 59.1255
-# getMotorTorque(motors[1,])
-# [1] 105.38
-
-getWheelTorque <- function(motor_torque, gear_ratio, final_drive) {
-  motor_torque * gear_ratio * final_drive
-}
-
-getWheelForce_gross <- function(wheel_torque, wheel_radius) {
-  wheel_torque / wheel_radius
-}
-
-getDTForce <- function(wheel_force, drive_efficiency) {
-  wheel_force * (1 - drive_efficiency)
-}
-
-getAeroForce <- function(frontal_area, Cd, velocity, rho) {
-  0.5 * rho * frontal_area * Cd * velocity ^ 2
-}
-
-getRollingForce <- function(psi, speed, design_mass) {
-  coef <- getRollingResistCoef(as.character(psi))
-  ((coef$x2 * speed ^ 2) +
-      (coef$x * speed) +
-      coef$c) * design_mass
-}
-
-getWheelForce_net <- function(wheel_force, dt_force, aero_force, rolling_force) {
-  wheel_force - dt_force - aero_force - rolling_force
-}
-
-getAcceleration <- function(wheelforce, design_mass, gear) {
-  rotational_mass <- getRotationalMass(as.character(gear))
-  wheelforce / lbf_slugs((design_mass * rotational_mass))
-}
-
-getDistance <- function(velocity0, velocity, time_step, dist0 = NA) {
-  if (is.na(dist0)) {
-    0
-  }
-  dist0 + ((velocity0 + velocity) / 2) * time_step
+  data.frame(time = time_step,
+             gear = gear,
+             gearratio = gearratio,
+             velocity0 = velocity,
+             velocity = velocity,
+             speed = speed,
+             motorrpm = 0,
+             motorrpmpt = 0,
+             motortorque = motortorque,
+             wheeltorque = wheeltorque,
+             wheelforce.gross = wheelforce_gross,
+             dtforce = dtforce,
+             aeroforce = aeroforce,
+             rollingforce = rollingforce,
+             wheelforce.net = wheelforce_net,
+             acceleration = acceleration,
+             distance_ft = 0,
+             distance_miles = 0,
+             hp = 0)
 }
 
 shinyServer(function(input, output, session) {
@@ -369,6 +254,8 @@ shinyServer(function(input, output, session) {
     )
   })
 
+
+
   motor <- reactive({
     req(input$motor)
     querydb("Motors") %>%
@@ -385,9 +272,9 @@ shinyServer(function(input, output, session) {
     defaults$no_gears <- car()$X..Gears
   })
 
-  observe({
-    defaults$aero_drive_type <- car()$Drive
-  })
+  # observe({
+  #   defaults$aero_drive_type <- car()$Drive
+  # })
 
   observe({
     defaults$aero_frontal_area <- car()$Ft2.20
@@ -396,18 +283,18 @@ shinyServer(function(input, output, session) {
   observe({
     defaults$aero_drag_coeff <- car()$Cd
   })
+#
+#   observe({
+#     defaults$tire_width <- car()$Width.Side.Wall..mm.
+#   })
 
-  observe({
-    defaults$tire_width <- car()$Width.Side.Wall..mm.
-  })
+  # observe({
+  #   defaults$tire_section_height <- car()$Aspect.Side.Wall..mm.
+  # })
 
-  observe({
-    defaults$tire_section_height <- car()$Aspect.Side.Wall..mm.
-  })
-
-  observe({
-    defaults$tire_rim <- car()$Rim.Radius..in.
-  })
+  # observe({
+  #   defaults$tire_rim <- car()$Rim.Radius..in.
+  # })
 
   observe({
     mass$car <- car()$Lbsm
@@ -430,11 +317,11 @@ shinyServer(function(input, output, session) {
   })
 
   observe({
-    mass$engine_wt_removed <- setup$engine_carwt * mass$car
+    mass$engine_wt_removed <- setup$engine_carwt * car()$Lbsm
   })
 
   dt.loss <- reactive({
-    switch(defaults$aero_drive_type,
+    switch(car()$Drive,
            `FWD` = .10,
            `RWD` = .12,
            `RE-RWD` = .12,
@@ -478,14 +365,18 @@ shinyServer(function(input, output, session) {
     (power() * var.dt.loss) + fixed.dt.loss
   })
 
-  drive.efficiency <- reactive({
-    (power() - max.dt.loss()) / power()
+  de <- reactive({
+    drive.efficiency(power(), max.dt.loss())
   })
 
   wheelRadius <- reactive({
-    getWheelRadius(defaults$tire_width,
-                   defaults$tire_section_height,
-                   defaults$tire_rim)
+
+    getWheelRadius(car()$Width.Side.Wall..mm.,
+                   car()$Aspect.Side.Wall..mm.,
+                   car()$Rim.Radius..in.)
+    # getWheelRadius(defaults$tire_width,
+    #                defaults$tire_section_height,
+    #                defaults$tire_rim)
   })
 
   wheelCircumference <- reactive({
@@ -534,73 +425,21 @@ shinyServer(function(input, output, session) {
 
     withProgress(message = 'Calculating Performance Diagnostics', value = 0, {
 
-    time_step <- 0
-    gear0 <- 1
-    gearratio0 <- getGearRatio(input$car, gear0)
-    velocity00 <- 0
-    speed0 <- getSpeed(velocity00)
-    motortorque0 <- getMotorTorque(motor(), input$no.motors)
-    wheeltorque0 <- getWheelTorque(motortorque0, gearratio0, getGearRatio(input$car, 6))
-    wheelforce_gross0 <- getWheelForce_gross(wheeltorque0, wheelRadius())
-    dtforce0 <- getDTForce(wheelforce_gross0, drive.efficiency())
-    aeroforce0 <- getAeroForce(defaults$aero_frontal_area, defaults$aero_drag_coeff, velocity00, setup$rho)
-    rollingforce0 <- getRollingForce(setup$tire_pressure, speed0, design.mass())
-    wheelforce_net0 <- getWheelForce_net(wheelforce_gross0, dtforce0, aeroforce0, rollingforce0)
-    acceleration0 <- getAcceleration(wheelforce_net0, design.mass(), 1)
+      time_step <- 0
 
-    round <- data.frame(time = time_step,
-                        gear = gear0,
-                        gearratio = gearratio0,
-                        velocity0 = velocity00,
-                        velocity = velocity00,
-                        speed = speed0,
-                        motorrpm = 0,
-                        motorrpmpt = 0,
-                        motortorque = motortorque0,
-                        wheeltorque = wheeltorque0,
-                        wheelforce.gross = wheelforce_gross0,
-                        dtforce = dtforce0,
-                        aeroforce = aeroforce0,
-                        rollingforce = rollingforce0,
-                        wheelforce.net = wheelforce_net0,
-                        acceleration = acceleration0,
-                        distance_ft = 0,
-                        distance_miles = 0,
-                        hp = 0)
+      round <- performance.simulation(time_step, gear = 1, input$car, 0, motor(), input$no.motors, wheelRadius(), de(),
+                                      defaults$aero_frontal_area,
+                                      defaults$aero_drag_coeff,
+                                      setup$rho,
+                                      setup$tire_pressure,
+                                      design.mass())
 
-    gear0 <- 2
-    gearratio0 <- getGearRatio(input$car, gear0)
-    velocity00 <- 0
-    speed0 <- getSpeed(velocity00)
-    motortorque0 <- getMotorTorque(motor(), input$no.motors)
-    wheeltorque0 <- getWheelTorque(motortorque0, gearratio0, getGearRatio(input$car, 6))
-    wheelforce_gross0 <- getWheelForce_gross(wheeltorque0, wheelRadius())
-    dtforce0 <- getDTForce(wheelforce_gross0, drive.efficiency())
-    aeroforce0 <- getAeroForce(defaults$aero_frontal_area, defaults$aero_drag_coeff, velocity00, setup$rho)
-    rollingforce0 <- getRollingForce(setup$tire_pressure, speed0, design.mass())
-    wheelforce_net0 <- getWheelForce_net(wheelforce_gross0, dtforce0, aeroforce0, rollingforce0)
-    acceleration0 <- getAcceleration(wheelforce_net0, design.mass(), gear0)
-
-    round_alt <- data.frame(time = time_step,
-                            gear = gear0,
-                            gearratio = gearratio0,
-                            velocity0 = velocity00,
-                            velocity = velocity00,
-                            speed = speed0,
-                            motorrpm = 0,
-                            motorrpmpt = 0,
-                            motortorque = motortorque0,
-                            wheeltorque = wheeltorque0,
-                            wheelforce.gross = wheelforce_gross0,
-                            dtforce = dtforce0,
-                            aeroforce = aeroforce0,
-                            rollingforce = rollingforce0,
-                            wheelforce.net = wheelforce_net0,
-                            acceleration = acceleration0,
-                            distance_ft = 0,
-                            distance_miles = 0,
-                            hp = 0)
-
+      round_alt <- performance.simulation(time_step, gear = 2, input$car, 0, motor(), input$no.motors, wheelRadius(), de(),
+                                      defaults$aero_frontal_area,
+                                      defaults$aero_drag_coeff,
+                                      setup$rho,
+                                      setup$tire_pressure,
+                                      design.mass())
 
     incProgress(1)
 
@@ -654,7 +493,7 @@ shinyServer(function(input, output, session) {
                                                           wheelRadius())
 
       round[i, "dtforce"] <- getDTForce(round[i, "wheelforce.gross"],
-                                        drive.efficiency())
+                                        de())
 
       round[i, "aeroforce"] <- getAeroForce(defaults$aero_frontal_area,
                                             defaults$aero_drag_coeff,
@@ -684,33 +523,44 @@ shinyServer(function(input, output, session) {
       round[i, "hp"] <- torquerpm_hp(round[i, "motortorque"] * round[i, "motorrpm"])
 
       gear_alt <- ifelse(gear >= defaults$no_gears, 5, gear + 1)
+
       round_alt[i, "time"] <- time
       round_alt[i, "gear"] <- gear_alt
       round_alt[i, "gearratio"] <- getGearRatio(input$car, gear_alt)
       round_alt[i, "velocity0"] <- round_alt[zero, "velocity"]
+
       round_alt[i, "velocity"] <- getVelocity(round_alt[i, "velocity0"],
                                               round_alt[zero, "acceleration"],
                                               step)
+
       round_alt[i, "speed"] <- getSpeed(round_alt[i, "velocity"])
+
       round_alt[i, "motorrpm"] <- getMotorRpm(round_alt[i, "velocity"],
                                               getGearRatio(input$car, gear_alt),
                                               getGearRatio(input$car, 6),
                                               wheelCircumference())
-      round_alt[i, "motorrpmpt"] <- ifelse(round_alt[i, "motorrpm"] > getMotorLimit(motor()), getMotorLimit(motor()) / 1000, round_alt[i, "motorrpm"] / 1000)
-      round_alt[i, "motortorque"] <- getMotorTorque(motor(), input$no.motors, round_alt[i, "motorrpmpt"])
-      round_alt[i, "wheeltorque"] <- getWheelTorque(round_alt[i, "motortorque"], round_alt[i, "gearratio"], getGearRatio(input$car, 6))
+
+      round_alt[i, "motorrpmpt"] <- ifelse(round_alt[i, "motorrpm"] > getMotorLimit(motor()),
+                                           getMotorLimit(motor()) / 1000,
+                                           round_alt[i, "motorrpm"] / 1000)
+
+      round_alt[i, "motortorque"] <- getMotorTorque(motor(),
+                                                    input$no.motors,
+                                                    round_alt[i, "motorrpmpt"])
+
+      round_alt[i, "wheeltorque"] <- getWheelTorque(round_alt[i, "motortorque"],
+                                                    round_alt[i, "gearratio"],
+                                                    getGearRatio(input$car, 6))
+
       round_alt[i, "wheelforce.gross"] <- getWheelForce_gross(round_alt[i, "wheeltorque"], wheelRadius())
-      round_alt[i, "dtforce"] <- getDTForce(round_alt[i, "wheelforce.gross"], drive.efficiency())
+      round_alt[i, "dtforce"] <- getDTForce(round_alt[i, "wheelforce.gross"], de())
       round_alt[i, "aeroforce"] <- getAeroForce(defaults$aero_frontal_area, defaults$aero_drag_coeff, round_alt[i, "velocity"], setup$rho)
       round_alt[i, "rollingforce"] <- getRollingForce(setup$tire_pressure, round_alt[i, "speed"], design.mass())
       round_alt[i, "wheelforce.net"] <- getWheelForce_net(round_alt[i, "wheelforce.gross"], round_alt[i, "dtforce"], round_alt[i, "aeroforce"], round_alt[i, "rollingforce"])
-      round_alt[i, "acceleration"] <- getAcceleration(round_alt[i, "wheelforce.net"], design.mass(), gear_alt)
-      round_alt[i, "distance_ft"] <- getDistance(round_alt[i, "velocity0"],
-                                                 round_alt[i, "velocity"],
-                                                 step,
-                                                 round_alt[zero, "distance_ft"])
-      round_alt[i, "distance_miles"] <- ft_miles(round_alt[i, "distance_ft"])
-      round_alt[i, "hp"] <- torquerpm_hp(round_alt[i, "motortorque"] * round_alt[i, "motorrpm"])
+
+      round_alt[i, "acceleration"] <- getAcceleration(round_alt[i, "wheelforce.net"],
+                                                      design.mass(),
+                                                      gear_alt)
     }
     })
     performance$results <- select(round, -velocity0)
@@ -728,48 +578,89 @@ shinyServer(function(input, output, session) {
       return(NULL)
 
     withProgress(message = 'Running Range Simulation', value = 0, {
-      incProgress(1/nrow(range$simulation))
+      incProgress(1)
 
-      r <- matrix(nrow = nrow(range$simulation), ncol = 13) %>% as.data.frame()
-      names(r) <- c(names(range$simulation), "velocity", "distance", "acceleration", "gear", "mass", "inertial", "aero", "rolling", "dt", "motor")
+      r <- matrix(nrow = nrow(range$simulation), ncol = 13) %>%
+        as.data.frame()
 
-      r[1, 1:3] <- range$simulation[1,]
-      r[1, "velocity"] <- mph_fps(r[1, "MPH"])
-      r[1, "distance"] <- 0
-      r[1, "acceleration"] <- 0
-      r[1, "gear"] <- filter(performance$results, velocity <= r[1, "velocity"]) %>%
-        .$gear %>%
-        max(na.rm = TRUE)
-      r[1, "mass"] <- getRotationalMass(r[1, "gear"]) * design.mass()
+      names(r) <- c(names(range$simulation),
+                    "velocity",
+                    "distance",
+                    "acceleration",
+                    "gear",
+                    "mass",
+                    "inertial",
+                    "aero",
+                    "rolling",
+                    "dt",
+                    "motor")
 
-      r[1, "inertial"] <- lbf_slugs(r[1, "mass"]) * r[1, "acceleration"]
-      r[1, "aero"] <- getAeroForce(defaults$aero_frontal_area, defaults$aero_drag_coeff, r[1, "velocity"], setup$rho)
-      r[1, "rolling"] <- ifelse(r[1, "velocity"] > 0, getRollingForce(setup$tire_pressure, r[1, "MPH"], design.mass()), 0)
-      r[1, "dt"] <- abs(sum(c(r[1, "inertial"], r[1, "aero"], r[1, "rolling"]))) * (1 - drive.efficiency())
-      r[1, "motor"] <- ifelse(sum(c(r[1, "inertial"], r[1, "aero"], r[1, "rolling"], r[1, "dt"])) >= 0,
-                              sum(c(r[1, "inertial"], r[1, "aero"], r[1, "rolling"], r[1, "dt"])) / setup$motor_efficiency,
-                              sum(c(r[1, "inertial"], r[1, "aero"], r[1, "rolling"], r[1, "dt"])) * setup$regeneration)
+      rounds <- 1:nrow(range$simulation)
 
-
-      for (i in 2:nrow(range$simulation)) {
-        incProgress(1/nrow(range$simulation))
-        r[i, 1:3] <- range$simulation[i,]
-        r[i, "velocity"] <- mph_fps2(r[i, "MPH"])
-        r[i, "distance"] <- ((r[i, "velocity"] + r[i-1, "velocity"])/2/5280) + r[(i-1), "distance"]
-        r[i, "acceleration"] <- (r[i, "velocity"] - r[i-1, "velocity"])
-        r[i, "gear"] <- filter(performance$results, velocity <= r[i, "velocity"]) %>%
+      r[, 1:3] <- range$simulation
+      r[, "velocity"] <- mph_fps2(r[, "MPH"])
+      r[, "distance"] <- sapply(rounds, function(x) ifelse(x == 1, 0, (r[x, "velocity"] + r[x-1, "velocity"]) / 2 / 5280), USE.NAMES = FALSE)
+      r[, "distance"] <- cumsum(r[, "distance"])
+      r[, "acceleration"] <- sapply(rounds, function(x) ifelse(x == 1, 0, r[x, "velocity"] - r[x-1, "velocity"]), USE.NAMES = FALSE)
+      r[, "gear"] <- sapply(rounds, function(x) {
+        performance$results %>%
+          filter(velocity <= r[x, "velocity"]) %>%
           .$gear %>%
           max(na.rm = TRUE)
-        r[i, "mass"] <- getRotationalMass(r[i, "gear"]) * design.mass()
+      }, USE.NAMES = FALSE)
 
-        r[i, "inertial"] <- lbf_slugs(r[i, "mass"]) * r[i, "acceleration"]
-        r[i, "aero"] <- getAeroForce(defaults$aero_frontal_area, defaults$aero_drag_coeff, r[i, "velocity"], setup$rho)
-        r[i, "rolling"] <- ifelse(r[i, "velocity"] > 0, getRollingForce(setup$tire_pressure, r[i, "MPH"], design.mass()), 0)
-        r[i, "dt"] <- abs(sum(c(r[i, "inertial"], r[i, "aero"], r[i, "rolling"]))) * (1 - drive.efficiency())
-        r[i, "motor"] <- ifelse(sum(c(r[i, "inertial"], r[i, "aero"], r[i, "rolling"], r[i, "dt"])) >= 0,
-                                sum(c(r[i, "inertial"], r[i, "aero"], r[i, "rolling"], r[i, "dt"])) / setup$motor_efficiency,
-                                sum(c(r[i, "inertial"], r[i, "aero"], r[i, "rolling"], r[i, "dt"])) * setup$regeneration)
-      }
+      r[, "mass"] <- getRotationalMass(r[, "gear"]) * design.mass()
+
+      r[, "inertial"] <- sapply(rounds, function(x) lbf_slugs(r[x, "mass"]) * r[x, "acceleration"], USE.NAMES = FALSE)
+      r[, "aero"] <- getAeroForce(defaults$aero_frontal_area, defaults$aero_drag_coeff, r[, "velocity"], setup$rho)
+      r[, "rolling"] <- sapply(rounds, function(x) ifelse(r[x, "velocity"] > 0, getRollingForce(setup$tire_pressure, r[x, "MPH"], design.mass()), 0), USE.NAMES = FALSE)
+      r[, "dt"] <- sapply(rounds, function(x) abs(r$inertial[x] + r$aero[x] + r$rolling[x]) * (1 - de()), USE.NAMES = FALSE)
+
+      r[, "motor"] <- sapply(rounds, function(x) {
+        ifelse(sum(c(r[x, "inertial"], r[x, "aero"], r[x, "rolling"], r[x, "dt"])) >= 0,
+               sum(c(r[x, "inertial"], r[x, "aero"], r[x, "rolling"], r[x, "dt"])) / setup$motor_efficiency,
+               sum(c(r[x, "inertial"], r[x, "aero"], r[x, "rolling"], r[x, "dt"])) * setup$regeneration)
+      }, USE.NAMES = FALSE)
+      # r[1, "gear"] <- filter(performance$results,
+      #                        velocity <= r[1, "velocity"]) %>%
+      #   .$gear %>%
+      #   max(na.rm = TRUE)
+
+      # r[1, "mass"] <- getRotationalMass(r[1, "gear"]) * design.mass()
+      # r[1, "inertial"] <- lbf_slugs(r[1, "mass"]) * r[1, "acceleration"]
+
+      # r[1, "aero"] <- getAeroForce(defaults$aero_frontal_area,
+      #                              defaults$aero_drag_coeff,
+      #                              r[1, "velocity"],
+      #                              setup$rho)
+
+      # r[1, "rolling"] <- ifelse(r[1, "velocity"] > 0,
+      #                           getRollingForce(setup$tire_pressure,
+      #                                           r[1, "MPH"],
+      #                                           design.mass()),
+      #                           0)
+
+      # r[1, "dt"] <- abs(sum(c(r[1, "inertial"],
+      #                         r[1, "aero"],
+      #                         r[1, "rolling"]))) * (1 - de())
+
+      # r[1, "motor"] <- ifelse(sum(c(r[1, "inertial"],
+      #                               r[1, "aero"],
+      #                               r[1, "rolling"],
+      #                               r[1, "dt"])) >= 0,
+      #                         sum(c(r[1, "inertial"],
+      #                               r[1, "aero"],
+      #                               r[1, "rolling"],
+      #                               r[1, "dt"])) / setup$motor_efficiency,
+      #                         sum(c(r[1, "inertial"],
+      #                               r[1, "aero"],
+      #                               r[1, "rolling"],
+      #                               r[1, "dt"])) * setup$regeneration)
+
+      # for (i in 2:nrow(range$simulation)) {
+      #   incProgress(1/nrow(range$simulation))
+      #
+      # }
 
       r <- r %>%
         mutate(inertial = inertial * velocity,
@@ -797,30 +688,22 @@ shinyServer(function(input, output, session) {
     req(input$car)
     d <- car() %>%
       mutate(`Design Mass (lbm)` = round(design.mass(), 0)) %>%
-      # mutate(X1st = formatC(X1st, digits = 2, format = 'f'),
-      #        X2nd = formatC(X2nd, digits = 2, format = 'f'),
-      #        X3rd = formatC(X3rd, digits = 2, format = 'f'),
-      #        X4th = formatC(X4th, digits = 2, format = 'f'),
-      #        X5th = formatC(X5th, digits = 2, format = 'f'),
-      #        Final.Drive = formatC(Final.Drive, digits = 2, format = 'f')) %>%
       select(Car15,
              `Drag Coefficient (Cd)` = Cd,
              `Frontal Area (sqft)` = `Ft2.20`,
              `Design Mass (lbm)`) %>%
-             # `1st` = X1st,
-             # `2nd` = X2nd,
-             # `3rd` = X3rd,
-             # `4th` = X4th,
-             # `5th` = X5th,
-             # `Final Drive` = Final.Drive) %>%
       gather(Car, Value, Car15:`Design Mass (lbm)`) %>%
-      # gather(Car, Value, Car15:`Final Drive`) %>%
       mutate(Value = ifelse(Car == "Frontal Area (sqft)",
-                            formatC(as.numeric(Value), digits = 1, format = 'f'),
-                            formatC(as.numeric(Value), digits = 2, format = 'f'))) %>%
+                            formatC(as.numeric(Value),
+                                    digits = 1,
+                                    format = 'f'),
+                            formatC(as.numeric(Value),
+                                    digits = 2,
+                                    format = 'f'))) %>%
       filter(Car != "Car15")
 
-    d[3, 2] <- prettyNum(round(as.numeric(d[3, 2]), 0), big.mark = ',')
+    d[3, 2] <- prettyNum(round(as.numeric(d[3, 2]), 0),
+                         big.mark = ',')
 
     d %>%
       datatable(
@@ -848,8 +731,9 @@ shinyServer(function(input, output, session) {
          `5th` = X5th,
              `Final Drive` = Final.Drive) %>%
       gather(Car, Value, `1st`:`Final Drive`) %>%
-      mutate(Value = formatC(as.numeric(Value), digits = 2, format = 'f'))
-      # filter(Car != "Car15")
+      mutate(Value = formatC(as.numeric(Value),
+                             digits = 2,
+                             format = 'f'))
 
     d %>%
       datatable(
@@ -902,7 +786,9 @@ shinyServer(function(input, output, session) {
              `Power (hp)` = Power..hp.25) %>%
       gather(Motor, Value, Motor:`Power (hp)`) %>%
       mutate(Value = as.numeric(Value) * input$no.motors) %>%
-      mutate(Value = formatC(as.numeric(Value), digits = 1, format = 'f')) %>%
+      mutate(Value = formatC(as.numeric(Value),
+                             digits = 1,
+                             format = 'f')) %>%
       filter(Motor != "Motor") %>%
       datatable(
         colnames = c(input$motor, sprintf("x%s", input$no.motors)),
@@ -925,9 +811,15 @@ shinyServer(function(input, output, session) {
     r <- performance$results
 
     r %>%
-      mutate(gear = factor(gear, levels = c("1", "2", "3", "4", "5"), labels = c("1st", "2nd", "3rd", "4th", "5th"))) %>%
-      ggplot(aes(speed, acceleration, group = gear)) +
-      geom_point(stat = "identity", aes(color = gear), size = 1.5) +
+      mutate(gear = factor(gear,
+                           levels = c("1", "2", "3", "4", "5"),
+                           labels = c("1st", "2nd", "3rd", "4th", "5th"))) %>%
+      ggplot(aes(speed,
+                 acceleration,
+                 group = gear)) +
+      geom_point(stat = "identity",
+                 aes(color = gear),
+                 size = 1.5) +
       scale_color_manual(values = rev(c("#b3e6cc",
                                     "#79d2a6",
                                     "#40bf80",
@@ -938,17 +830,22 @@ shinyServer(function(input, output, session) {
       theme(
         legend.position = 'right',
         panel.background = element_blank(),
-        axis.text = element_text(face = 'bold', size = 10),
-        axis.title.x = element_text(face = 'bold', size = 11, margin = margin(t = 15, r = 0, b = 0, l = 0)),
-        axis.title.y = element_text(face = 'bold', size = 11),
+        axis.text = element_text(face = 'bold',
+                                 size = 10),
+        axis.title.x = element_text(face = 'bold',
+                                    size = 11,
+                                    margin = margin(t = 15,
+                                                    r = 0,
+                                                    b = 0,
+                                                    l = 0)),
+        axis.title.y = element_text(face = 'bold',
+                                    size = 11),
         legend.title = element_blank(),
-        legend.text = element_text(face = 'bold', size = 10),
-        plot.title = element_text(size=11, face = "bold")
+        legend.text = element_text(face = 'bold',
+                                   size = 10),
+        plot.title = element_text(size=11,
+                                  face = "bold")
       ) +
-      # xlim(0, 200) +
-      # ylim(0, 30) +
-      # , margin = margin(t = 0, r = 15, b = 0, l = 0)
-      # colour = "#333333"
       xlab("Speed (mph)") +
       ylab(NULL) +
       ggtitle("Acceleration (mph/s)")
