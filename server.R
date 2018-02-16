@@ -427,19 +427,33 @@ shinyServer(function(input, output, session) {
 
       time_step <- 0
 
-      round <- performance.simulation(time_step, gear = 1, input$car, 0, motor(), input$no.motors, wheelRadius(), de(),
+      round <- performance.simulation(time_step,
+                                      gear = 1,
+                                      input$car,
+                                      0,
+                                      motor(),
+                                      input$no.motors,
+                                      wheelRadius(),
+                                      de(),
                                       defaults$aero_frontal_area,
                                       defaults$aero_drag_coeff,
                                       setup$rho,
                                       setup$tire_pressure,
                                       design.mass())
 
-      round_alt <- performance.simulation(time_step, gear = 2, input$car, 0, motor(), input$no.motors, wheelRadius(), de(),
-                                      defaults$aero_frontal_area,
-                                      defaults$aero_drag_coeff,
-                                      setup$rho,
-                                      setup$tire_pressure,
-                                      design.mass())
+      round_alt <- performance.simulation(time_step,
+                                          gear = 2,
+                                          input$car,
+                                          0,
+                                          motor(),
+                                          input$no.motors,
+                                          wheelRadius(),
+                                          de(),
+                                          defaults$aero_frontal_area,
+                                          defaults$aero_drag_coeff,
+                                          setup$rho,
+                                          setup$tire_pressure,
+                                          design.mass())
 
     incProgress(1)
 
@@ -585,10 +599,14 @@ shinyServer(function(input, output, session) {
       r <- range$simulation %>%
         mutate(velocity = mph_fps2(MPH))
 
-      r[, "distance"] <- sapply(rounds, function(x) ifelse(x == 1, 0, (r[x, "velocity"] + r[x-1, "velocity"]) / 2 / 5280), USE.NAMES = FALSE)
-      r[, "distance"] <- cumsum(r[, "distance"])
+      r[, "distance"] <- cumsum(sapply(rounds, function(x) {
+        ifelse(x == 1, 0, (r[x, "velocity"] + r[x-1, "velocity"]) / 2 / 5280)
+      }, USE.NAMES = FALSE))
 
-      r[, "acceleration"] <- sapply(rounds, function(x) ifelse(x == 1, 0, r[x, "velocity"] - r[x-1, "velocity"]), USE.NAMES = FALSE)
+      r[, "acceleration"] <- sapply(rounds, function(x) {
+        ifelse(x == 1, 0, r[x, "velocity"] - r[x-1, "velocity"])
+      }, USE.NAMES = FALSE)
+
       r[, "gear"] <- sapply(rounds, function(x) {
         performance$results %>%
           filter(velocity <= r[x, "velocity"]) %>%
@@ -694,9 +712,9 @@ shinyServer(function(input, output, session) {
 
   output$tiredetails <- DT::renderDataTable({
 
-    d <- data.frame(width = defaults$tire_width,
-               sheight = defaults$tire_section_height,
-               rim = defaults$tire_rim,
+    d <- data.frame(width = car()$Width.Side.Wall..mm.,
+               sheight = car()$Aspect.Side.Wall..mm.,
+               rim = car()$Rim.Radius..in.,
                radius = round((wheelRadius() * 2) * 12, 2),
                stringsAsFactors = FALSE) %>%
       gather(Key, Value, width:radius)
