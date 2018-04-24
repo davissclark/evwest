@@ -238,22 +238,39 @@ shinyServer(function(input, output, session) {
   database = tagList(
     fluidRow(
       column(3,
-             selectInput("dataset",
-                         "Select table",
-                         tablelistdb(),
-                         selected = "UpdateLog"),
-             conditionalPanel(
-               condition = 'input.dbTable_rows_selected.length > 0',
-               actionButton("edit", "Edit", width = '100%')
-             )
+             DT::dataTableOutput("tablelist")
+             # selectInput("dataset",
+             #             "Select table",
+             #             tablelistdb(),
+             #             selected = "UpdateLog")
       ),
       column(9,
+             conditionalPanel(
+               condition = 'input.dbTable_rows_selected.length > 0',
+               actionLink("edit", "Edit")
+             ),
              DT::dataTableOutput("dbTable")
       )
     ))
     )
   })
 
+  output$tablelist <- DT::renderDataTable({
+    tablelistdb() %>%
+      as.data.frame() %>%
+      datatable(extensions = "Scroller",
+                selection = list(mode = 'single', selected = 1, target = "row"),
+                options = list(
+                  scroller = TRUE,
+                  deferRender = TRUE,
+                  searching = FALSE,
+                  scrollX = TRUE,
+                  scrollY = 400,
+                  dom = 'ft',
+                  ordering = FALSE
+                ),
+                rownames = FALSE)
+  })
 
 
   motor <- reactive({
@@ -774,7 +791,7 @@ shinyServer(function(input, output, session) {
                            levels = c("1", "2", "3", "4", "5"),
                            labels = c("1st", "2nd", "3rd", "4th", "5th"))) %>%
       ggplot(aes(speed,
-                 acceleration,
+                 velocity,
                  group = gear)) +
       geom_point(stat = "identity",
                  aes(color = gear),
@@ -807,7 +824,7 @@ shinyServer(function(input, output, session) {
       ) +
       xlab("Speed (mph)") +
       ylab(NULL) +
-      ggtitle("Acceleration (mph/s)")
+      ggtitle("Velocity (mph/s)")
   },
   height = 325)
 
@@ -932,8 +949,27 @@ shinyServer(function(input, output, session) {
     updateSelectInput(session, 'motor', selected = "34-96")
   })
 
+  vals <- reactiveValues(d = NULL)
+
+  dataset <- reactive({
+    tablelistdb()[input$tablelist_rows_selected]
+  })
+
+  observe({
+    req(input$tablelist_rows_selected)
+    vals$d <- querydb(dataset())
+  })
+
+  observeEvent(input$ok, {
+    vals$d <- querydb(dataset())
+  },
+  ignoreInit = TRUE)
+
+
   output$dbTable <- DT::renderDataTable({
-    querydb(input$dataset) %>%
+    req(vals$d)
+
+    vals$d  %>%
       datatable(extensions = "Scroller",
                 selection = 'single',
                 options = list(
@@ -948,29 +984,35 @@ shinyServer(function(input, output, session) {
                 rownames = FALSE)
   }, server = TRUE)
 
-  editdata <- reactive({
+  edit <- reactiveValues(d = NULL)
+
+  observe({
+    req(input$dbTable_rows_selected, input$tablelist_rows_selected)
     index <- input$dbTable_rows_selected
-    table <- input$dataset
+    table <- dataset()
 
-    data <- querydb(table)[index, ]
-
-    data %>%
+    edit$d <- querydb(table)[index, ] %>%
       gather(Field, Value)
   })
 
   output$dataedit <- DT::renderDataTable({
-    editdata() %>%
+    req(edit$d)
+
+    edit$d %>%
       datatable(
         selection = 'single',
         options = list(
           dom = 'ft',
           searching = FALSE,
           scrollX = TRUE,
-          scrollY = 400
-        ),
-        rownames = FALSE
+          scrollY = 400,
+          paging = FALSE
+        )
+        # rownames = FALSE
       )
   })
+
+
 
   # Return the UI for a modal dialog with data selection input. If 'failed' is
   # TRUE, then display a message that the previous value was invalid.
@@ -979,14 +1021,16 @@ shinyServer(function(input, output, session) {
 
     req(input$dataedit_rows_selected)
 
-    if (is.na(as.numeric(editdata()[input$dataedit_rows_selected, 2]))) {
+    if (is.na(edit$d[input$dataedit_rows_selected, 2])) {
+      NULL
+    } else if (is.na(as.numeric(edit$d[input$dataedit_rows_selected, 2]))) {
       textInput("val",
                 "Value",
-                editdata()[input$dataedit_rows_selected, 2])
+                edit$d[input$dataedit_rows_selected, 2])
     } else {
       numericInput("val",
                    "Value",
-                   editdata()[input$dataedit_rows_selected, 2])
+                   edit$d[input$dataedit_rows_selected, 2])
     }
   })
   dataModal <- function(failed = FALSE) {
@@ -1010,28 +1054,34 @@ shinyServer(function(input, output, session) {
     showModal(dataModal())
   })
 
-  dtrow <- reactiveVal(value = NA)
+  # dtrow <- reactiveVal(value = NA)
 
-  observeEvent(input$dbTable_row_last_clicked, {
-   dtrow(input$dbTable_row_last_clicked)
-  })
+  # observeEvent(input$dbTable_row_last_clicked, {
+  #  dtrow(input$dbTable_row_last_clicked)
+  # })
 
   observeEvent(input$enter, {
 
-    if (is.na(dtrow))
-      return(NULL)
+    # if (is.na(dtrow()))
+    #   return(NULL)
 
     db <- dbConnect(SQLite(), "data/db")
 
-    q <- sprintf("update %s set `%s` = %s where id = %s",
-            input$dataset,
-            editdata()[input$dataedit_rows_selected, "Field"],
+    col <- edit$d[input$dataedit_rows_selected, 1]
+
+    q <- sprintf("update %s set `%s` = '%s' where id = '%s';",
+            dataset(),
+            col,
             input$val,
-            dtrow())
+            input$dbTable_rows_selected)
 
     dbGetQuery(db, q)
 
     dbDisconnect(db)
+  })
+
+  observeEvent(input$enter, {
+    edit$d[input$dataedit_rows_selected, 2] <- input$val
   })
 
   observeEvent(input$ok, {

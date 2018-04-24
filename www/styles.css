@@ -114,3 +114,7 @@ a[href='#'] {
   width: 100%;
   margin: 2px 0 5px;
 }
+
+#edit {
+  color: #666;
+}
