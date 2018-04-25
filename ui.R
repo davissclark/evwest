@@ -20,16 +20,16 @@ shinyUI(fluidPage(
             ),
 
   div(id = "body",
-      column(3,
+      column(10,
              style = 'padding:0;
                       margin: 0 0 5px;
-             text-align:center;
+             text-align:left;
              vertical-align: bottom;',
              span(id = "logo",
                   tags$img(src = 'shield.png', width = 36, height = 30),
                  span(id = "title", "EV West"))
       ),
-      column(9,
+      # column(2,
              # uiOutput('mytabs')
              tabsetPanel(id = "viewbar",
                          tabPanel("Configure",
@@ -40,8 +40,8 @@ shinyUI(fluidPage(
                          #          value = "range"),
                          tabPanel(icon("gear"),
                                   value = "database")
-             )
-      ),
+             ),
+      # ),
       column(12,
              uiOutput("views")
       )

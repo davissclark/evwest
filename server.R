@@ -126,11 +126,11 @@ shinyServer(function(input, output, session) {
     switch(input$viewbar,
            config = tagList(
              fluidRow(
-               column(3,
+               column(2,
                       # br(),
                       div(class = "tools",
                           style = "height: 40px;
-                          font-size: 14px;
+                          font-size: 12px;
                           font-weight: 500;
                           margin-top: 10px;",
                         "Inputs"
@@ -175,8 +175,10 @@ shinyServer(function(input, output, session) {
                                                selected = ifelse(!is.null(config$motor), config$motor, ""))
                             ),
                             column(4,
+                                   style = "position: relative;
+                                   right: 20px;",
                                    numericInput("no.motors",
-                                                "# Motors", 1,
+                                                "#", 1,
                                                 1, 3,
                                                 step = 1)
                             )
@@ -197,7 +199,7 @@ shinyServer(function(input, output, session) {
                         actionButton("run",
                                      label = "Calculate",
                                      width = "100%"),
-                        br()
+                          br()
                       )
              ),
              column(9,
@@ -238,6 +240,7 @@ shinyServer(function(input, output, session) {
   database = tagList(
     fluidRow(
       column(3,
+             class = "table-select",
              DT::dataTableOutput("tablelist")
              # selectInput("dataset",
              #             "Select table",
@@ -245,11 +248,12 @@ shinyServer(function(input, output, session) {
              #             selected = "UpdateLog")
       ),
       column(9,
+             class = "details",
+             DT::dataTableOutput("dbTable"),
              conditionalPanel(
                condition = 'input.dbTable_rows_selected.length > 0',
                actionLink("edit", "Edit")
-             ),
-             DT::dataTableOutput("dbTable")
+             )
       )
     ))
     )
@@ -259,6 +263,7 @@ shinyServer(function(input, output, session) {
     tablelistdb() %>%
       as.data.frame() %>%
       datatable(extensions = "Scroller",
+                class = "compact",
                 selection = list(mode = 'single', selected = 1, target = "row"),
                 colnames = c("Select Table"),
                 options = list(
@@ -969,7 +974,50 @@ shinyServer(function(input, output, session) {
   output$dbTable <- DT::renderDataTable({
     req(vals$d)
 
-    vals$d  %>%
+    d <- vals$d
+
+    if (dataset() == "Cars") {
+      names(d) <- c("Car",
+                    "Drive",
+                    "Trans",
+                    "Year",
+                    "Cd",
+                    "Ft 2.20",
+                    "Weight",
+                    "1st",
+                    "2nd",
+                    "3rd",
+                    "4th",
+                    "5th",
+                    "Final Drive",
+                    "Gear Count",
+                    "Side Wall Width (mm)",
+                    "Side Wall Aspect (mm)",
+                    "Rim Radius (in)",
+                    "ID")
+    } else if (dataset() == "Setup") {
+      d <- querydb("Setup") %>%
+        gather(.) %>%
+        mutate(key = capwords(gsub("_", " ", key)))
+
+      names(d) <- c("Parameter", "Value")
+    } else if (dataset() == "Motors") {
+      names(d) <- c("Motor",
+                    "Mass (lbm)",
+                    "Max RPM",
+                    "Power (HP)",
+                    "Price",
+                    "RPM Max Power",
+                    "T0",
+                    "T1",
+                    "T2",
+                    "T3",
+                    "T4",
+                    "Torque (ft lbf)",
+                    "ID")
+    }
+
+     d %>%
       datatable(extensions = "Scroller",
                 selection = 'single',
                 options = list(

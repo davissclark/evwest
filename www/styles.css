@@ -23,6 +23,14 @@ h4 {
   top: -10px;
 }
 
+.table-select {
+    padding: 10px;
+    background-color: rgb(26, 26, 26);
+    background-color: rgba(26, 26, 26, .8);
+    color: #f2f2f2;
+    margin: 25px 0 2px;
+}
+
 .topinfo {
   display:block;
 }
@@ -57,11 +65,11 @@ img {
   letter-spacing: 2px;
 }
 
-viewbar {
+#viewbar {
   display: inline-block;
   font-size: 12px;
   position: fixed;
-  right: 2vw;
+  right: 3vw;
   top: 2vh;
 }
 
@@ -104,7 +112,6 @@ a[href='#'] {
   background-color: rgba(26, 26, 26, .8);
   color: #f2f2f2;
   width: 100%;
-  height: 50px;
 }
 
 #run {
