@@ -25,10 +25,7 @@ h4 {
 
 .table-select {
     padding: 10px;
-    background-color: rgb(26, 26, 26);
-    background-color: rgba(26, 26, 26, .8);
-    color: #f2f2f2;
-    margin: 25px 0 2px;
+    margin: 0 0 25px;
 }
 
 .topinfo {
@@ -55,14 +52,15 @@ img {
   position: relative;
   bottom: 9px;
   left: 9px;
+  margin-left: 5px;
 }
 
 #title {
   font-size: 2.8em;
   font-weight: 500;
   color: #444444;
-  margin: 0 20px;
-  letter-spacing: 2px;
+  margin: 0 15px;
+
 }
 
 #viewbar {

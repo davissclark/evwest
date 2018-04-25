@@ -247,7 +247,7 @@ shinyServer(function(input, output, session) {
              #             tablelistdb(),
              #             selected = "UpdateLog")
       ),
-      column(9,
+      column(12,
              class = "details",
              DT::dataTableOutput("dbTable"),
              conditionalPanel(
