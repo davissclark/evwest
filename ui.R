@@ -31,16 +31,7 @@ shinyUI(fluidPage(
       ),
       # column(2,
              # uiOutput('mytabs')
-             tabsetPanel(id = "viewbar",
-                         tabPanel("Configure",
-                                  value = "config"),
-                         # tabPanel("Performance",
-                         #          value = "performance"),
-                         # tabPanel("Range",
-                         #          value = "range"),
-                         tabPanel(icon("gear"),
-                                  value = "database")
-             ),
+      uiOutput("viewbar"),
       # ),
       column(12,
              uiOutput("views")

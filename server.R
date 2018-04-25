@@ -122,7 +122,38 @@ shinyServer(function(input, output, session) {
   #   }
   # })
 
+  output$viewbar <- renderUI({
+
+    query <- parseQueryString(session$clientData$url_search)
+
+    if ("admin" %in% names(query)) {
+      tabsetPanel(id = "viewbar",
+                  tabPanel("Configure",
+                           value = "config"),
+                  # tabPanel("Performance",
+                  #          value = "performance"),
+                  # tabPanel("Range",
+                  #          value = "range"),
+                  tabPanel(icon("gear"),
+                           value = "database")
+      )
+    } else {
+      div(
+        style = "display:none;",
+        tabsetPanel(id = "viewbar",
+                    tabPanel("Configure",
+                             value = "config")
+                    # tabPanel("Performance",
+                    #          value = "performance"),
+                    # tabPanel("Range",
+                    #          value = "range"),
+        )
+      )
+    }
+  })
+
   output$views <- renderUI({
+    req(input$viewbar)
     switch(input$viewbar,
            config = tagList(
              fluidRow(
