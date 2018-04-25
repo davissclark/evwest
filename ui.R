@@ -34,11 +34,11 @@ shinyUI(fluidPage(
              tabsetPanel(id = "viewbar",
                          tabPanel("Configure",
                                   value = "config"),
-                         tabPanel("Performance",
-                                  value = "performance"),
-                         tabPanel("Range",
-                                  value = "range"),
-                         tabPanel(icon("database"),
+                         # tabPanel("Performance",
+                         #          value = "performance"),
+                         # tabPanel("Range",
+                         #          value = "range"),
+                         tabPanel(icon("gear"),
                                   value = "database")
              )
       ),

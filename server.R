@@ -79,8 +79,8 @@ shinyServer(function(input, output, session) {
   )
 
   config <- reactiveValues(
-    car = "Generic Aero Small Car-RWD",
-    motor = "34-96"
+    car = querydb("Cars")[1, 1],
+    motor = querydb("Motors")[1, 1]
   )
 
   observeEvent(input$car, {
@@ -162,7 +162,7 @@ shinyServer(function(input, output, session) {
                         div(class = "tools",
                             selectInput("car",
                                         "Donor Car",
-                                        choices = c("", carSelect),
+                                        choices = c("", querydb("Cars")[, 1]),
                                         selected = ifelse(!is.null(config$car), config$car, ""))
                         ),
                         div(
@@ -171,7 +171,7 @@ shinyServer(function(input, output, session) {
                             column(8,
                                    selectInput("motor",
                                                label = "Motor Type",
-                                               choices = c("", motorSelect),
+                                               choices = c("", querydb("Motors")[, 1]),
                                                selected = ifelse(!is.null(config$motor), config$motor, ""))
                             ),
                             column(4,
@@ -260,12 +260,12 @@ shinyServer(function(input, output, session) {
       as.data.frame() %>%
       datatable(extensions = "Scroller",
                 selection = list(mode = 'single', selected = 1, target = "row"),
+                colnames = c("Select Table"),
                 options = list(
                   scroller = TRUE,
                   deferRender = TRUE,
                   searching = FALSE,
                   scrollX = TRUE,
-                  scrollY = 400,
                   dom = 'ft',
                   ordering = FALSE
                 ),
@@ -945,8 +945,8 @@ shinyServer(function(input, output, session) {
 
   observeEvent(input$clear, {
     performance$results <- NULL
-    updateSelectInput(session, 'car', selected = "Generic Aero Small Car-RWD")
-    updateSelectInput(session, 'motor', selected = "34-96")
+    updateSelectInput(session, 'car', selected = querydb("Cars")[1, 1])
+    updateSelectInput(session, 'motor', selected = querydb("Motors")[1, 1])
   })
 
   vals <- reactiveValues(d = NULL)
