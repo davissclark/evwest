@@ -812,7 +812,8 @@ shinyServer(function(input, output, session) {
           dom = 'ft',
           ordering = FALSE
         ),
-        rownames = FALSE) %>%
+        rownames = FALSE,
+        editable = TRUE) %>%
       formatStyle(1:2,
                   backgroundColor = 'white')
   })
@@ -826,7 +827,7 @@ shinyServer(function(input, output, session) {
       mutate(gear = factor(gear,
                            levels = c("1", "2", "3", "4", "5"),
                            labels = c("1st", "2nd", "3rd", "4th", "5th"))) %>%
-      ggplot(aes(speed,
+      ggplot(aes(time,
                  velocity,
                  group = gear)) +
       geom_point(stat = "identity",
@@ -858,7 +859,7 @@ shinyServer(function(input, output, session) {
         plot.title = element_text(size=11,
                                   face = "bold")
       ) +
-      xlab("Speed (mph)") +
+      xlab("Time (seconds)") +
       ylab(NULL) +
       ggtitle("Velocity (mph/s)")
   },
